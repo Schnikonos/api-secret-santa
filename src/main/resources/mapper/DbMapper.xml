@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.santa.secret.mapper.DbMapper">
+    <resultMap id="people" type="com.santa.secret.model.People">
+        <id column="id_peo" property="id"/>
+        <result column="name" property="name"/>
+        <result column="surname" property="surname"/>
+        <result column="email" property="email"/>
+    </resultMap>
+
+    <resultMap id="santa" type="com.santa.secret.model.Santa">
+        <id column="s_id_sea" property="id"/>
+        <result column="s_name" property="name"/>
+        <result column="s_creation_date" property="creationDate"/>
+        <result column="s_last_update" property="lastUpdate"/>
+        <collection property="runs" resultMap="run"/>
+    </resultMap>
+
+    <sql id="santa">
+        S.id_sea AS s_id_sea,
+        S.name AS s_name,
+        S.creation_date AS s_creation_date,
+        S.last_update AS s_last_update
+    </sql>
+
+    <resultMap id="run" type="com.santa.secret.model.SantaRun">
+        <id column="r_id_ser" property="id"/>
+        <result column="r_creation_date" property="creationDate"/>
+        <result column="r_last_update" property="lastUdpate"/>
+        <collection property="peopleList" resultMap="run"/>
+    </resultMap>
+
+    <sql id="run">
+        R.id_ser AS r_id_ser,
+        R.id_sea AS r_id_sea,
+        R.creation_date AS r_creation_date,
+        R.last_update AS r_last_update
+    </sql>
+
+    <resultMap id="runPeople" type="com.santa.secret.model.SantaRunPeople">
+        <id column="rp_id_srp" property="id"/>
+        <result column="rp_id_peo" property="idPeople"/>
+        <result column="rp_id_peo_to" property="idPeopleTo"/>
+        <result column="rp_mail_sent" property="mailSent"/>
+        <collection property="peopleList" resultMap="exclusions"/>
+    </resultMap>
+
+    <sql id="runPeople">
+        RP.id_srp AS rp_id_srp,
+        RP.id_ser AS rp_id_ser,
+        RP.id_peo AS rp_id_peo,
+        RP.id_peo_to AS rp_id_peo_to,
+        RP.mail_sent AS rp_mail_sent
+    </sql>
+
+    <resultMap id="exclusions" type="com.santa.secret.model.SantaRunExclusion">
+        <id column="e_id_peo" property="idPeople"/>
+    </resultMap>
+
+    <sql id="exclusions">
+        E.id_peo AS e_id_peo
+    </sql>
+
+    <select id="getPeopleList" resultMap="people">
+        SELECT * FROM PEOPLE
+    </select>
+
+    <insert id="insertPeople" useGeneratedKeys="true" keyProperty="id" keyColumn="id_peo" parameterType="com.santa.secret.model.People">
+        INSERT INTO people(name, surname, email)
+        VALUES (#{name,jdbcType=VARCHAR}, #{surname,jdbcType=VARCHAR}, #{email,jdbcType=VARCHAR})
+    </insert>
+
+    <update id="updatePeople" parameterType="com.santa.secret.model.People">
+        UPDATE people SET name=#{name,jdbcType=VARCHAR}, surname=#{surname,jdbcType=VARCHAR}, email=#{email,jdbcType=VARCHAR}
+        WHERE id_peo=#{id}
+    </update>
+
+    <delete id="deletePeople">
+        DELETE FROM people WHERE id_peo=#{id}
+    </delete>
+
+    <select id="getSantaList" resultMap="santa">
+        SELECT <include refid="santa"/> FROM secret_santa S
+    </select>
+
+    <select id="getSanta" resultMap="santa">
+        SELECT <include refid="santa"/> FROM secret_santa S WHERE id_sea=#{id}
+    </select>
+
+    <select id="getLastSanta" resultMap="santa">
+        SELECT <include refid="santa"/> FROM secret_santa S order by last_update desc limit 1
+    </select>
+
+    <insert id="insertSanta" parameterType="Santa" keyColumn="id_sea" keyProperty="id" useGeneratedKeys="true">
+        INSERT INTO secret_santa (name, creation_date, last_update)
+        VALUES (#{name,jdbcType=VARCHAR}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    </insert>
+
+    <update id="updateSanta" parameterType="Santa">
+        UPDATE secret_santa SET name=#{name,jdbcType=VARCHAR}, last_update=CURRENT_TIMESTAMP
+        WHERE id_sea=#{id}
+    </update>
+
+    <update id="deleteSanta">
+        DELETE FROM secret_santa WHERE id_sea=#{id}
+    </update>
+
+    <select id="selectRunList" resultMap="run">
+        SELECT <include refid="run"/> FROM secret_santa_run R WHERE id_sea=#{idSanta} ORDER BY last_update desc
+    </select>
+
+    <select id="selectRun" resultMap="run">
+        SELECT <include refid="run"/>, <include refid="runPeople"/>, <include refid="exclusions"/>
+            FROM secret_santa_run R
+            LEFT JOIN secret_santa_run_people RP on R.id_ser = RP.id_ser
+            LEFT JOIN secret_santa_run_exclusion E on RP.id_srp = E.id_srp
+        WHERE id_ser=#{id}
+    </select>
+
+    <insert id="insertRun" useGeneratedKeys="true" keyProperty="id" keyColumn="r.id_ser">
+        INSERT INTO secret_santa_run (id_sea, creation_date, last_update)
+        VALUES (#{idSea}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    </insert>
+
+    <update id="updateRun" parameterType="SantaRun">
+        UPDATE secret_santa_run SET last_update=CURRENT_TIMESTAMP WHERE id_ser=#{id}
+    </update>
+
+    <delete id="deleteRun">
+        DELETE FROM secret_santa_run WHERE id_ser=#{id}
+    </delete>
+
+    <insert id="insertRunPeople" keyColumn="id_srp" keyProperty="rp.id" useGeneratedKeys="true">
+        INSERT INTO secret_santa_run_people (id_ser, id_peo, id_peo_to, mail_sent)
+        VALUES (#{idRun}, #{rp.idPeople}, #{rp.idPeopleTo,jdbcType=INTEGER}, #{rp.mailSent})
+    </insert>
+
+    <update id="updateRunPeople" parameterType="com.santa.secret.model.SantaRunPeople">
+        UPDATE secret_santa_run_people SET id_peo_to=#{idPeopleTo,jdbcType=INTEGER}, mail_sent=#{mailSent}
+        WHERE id_srp=#{id}
+    </update>
+
+    <insert id="insertExclusion">
+        INSERT INTO secret_santa_run_exclusion (id_srp, id_peo)
+        VALUES (#{idRunPeople}, #{e.idPeople})
+    </insert>
+</mapper>
