@@ -63,7 +63,7 @@
     </sql>
 
     <select id="getPeopleList" resultMap="people">
-        SELECT * FROM PEOPLE
+        SELECT * FROM PEOPLE ORDER BY name, surname
     </select>
 
     <insert id="insertPeople" useGeneratedKeys="true" keyProperty="id" keyColumn="id_peo" parameterType="com.santa.secret.model.People">

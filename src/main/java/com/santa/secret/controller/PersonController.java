@@ -13,6 +13,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
+@CrossOrigin(origins={"http://localhost:3000"})
 public class PersonController {
     private final PersonService personService;
 
