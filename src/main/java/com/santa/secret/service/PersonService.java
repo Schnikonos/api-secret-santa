@@ -2,7 +2,6 @@ package com.santa.secret.service;
 
 import com.santa.secret.mapper.DbMapper;
 import com.santa.secret.model.*;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,9 +26,10 @@ public class PersonService {
 
         List<SantaRunPeople> peopleList = santaRun.getPeopleList();
         peopleList.forEach(SantaRunPeople::compute);
-        Collections.shuffle(peopleList);
 
-        Map<Long, Long> currentAssociations = peopleList.stream().collect(Collectors.toMap(SantaRunPeople::getIdPeople, SantaRunPeople::getIdPeopleTo));
+        Map<Long, Long> currentAssociations = new HashMap<>();
+        peopleList.forEach(p -> currentAssociations.put(p.getIdPeople(), p.getIdPeopleTo()));
+
         boolean isOk = computeLoop(res, peopleList, false);
         if (isOk) {
             SantaRun newSantaRun = insertSantaRun(idSanta, santaRun);
@@ -60,10 +60,13 @@ public class PersonService {
     }
 
     private boolean computeLoop(ComputeReply res, List<SantaRunPeople> peopleList, boolean allowSameFromTo) {
-        while (peopleList.stream().anyMatch(p -> p.getIdPeopleTo() != null)) {
+        while (true) {
             boolean isOk = computeRun(peopleList, allowSameFromTo);
             if (isOk) {
                 return true;
+            }
+            if (peopleList.stream().noneMatch(p -> p.getIdPeopleTo() != null)) {
+                return false;
             }
             Map<Long, Long> scoreMap = computePeopleListScore(peopleList);
             peopleList.stream().filter(p -> p.getIdPeopleTo() != null)
@@ -71,7 +74,6 @@ public class PersonService {
                     .ifPresent(p -> p.setIdPeopleTo(null)); // purpose is to add more people in the loop, starting with the ones with the less restrictions
             res.setNbChanged(res.getNbChanged() + 1);
         }
-        return false;
     }
 
     /**
@@ -97,13 +99,20 @@ public class PersonService {
     private boolean computeRun(List<SantaRunPeople> peopleList, boolean allowSameFromTo) {
         Set<Long> usedIds = peopleList.stream().map(SantaRunPeople::getIdPeopleTo).filter(Objects::nonNull).collect(Collectors.toSet()); // we collect people that already receive gifts
         List<Long> availableIds = peopleList.stream().map(SantaRunPeople::getIdPeople).filter(idPeople -> !usedIds.contains(idPeople)).toList(); // we compute the list of people not receiving gifts
-        Map<Long, Long> toFrom = peopleList.stream().filter(p -> p.getIdPeopleTo() != null).collect(Collectors.toMap(SantaRunPeople::getIdPeopleTo, SantaRunPeople::getId));
+
+        Map<Long, Long> toFrom = new HashMap<>();
+        peopleList.forEach(p -> toFrom.put(p.getIdPeopleTo(), p.getId()));
+
         return fillSecretSanta(peopleList, 0, availableIds, new HashSet<>(), toFrom, allowSameFromTo);
     }
 
     private SantaRun fillSantaRunInfo(SantaRun santaRun) {
-        Map<Long, SantaRunPeople> runPeopleList = santaRun.getPeopleList().stream().collect(Collectors.toMap(SantaRunPeople::getIdPeople, p -> p));
-        Map<Long, People> peopleMap = getPeopleList().stream().collect(Collectors.toMap(People::getId, p -> p));
+        Map<Long, SantaRunPeople> runPeopleList = new HashMap<>();
+        Map<Long, People> peopleMap = new HashMap<>();
+
+        santaRun.getPeopleList().forEach(p -> runPeopleList.put(p.getIdPeople(), p));
+        getPeopleList().forEach(p -> peopleMap.put(p.getId(), p));
+
         runPeopleList.values().forEach(p -> {
             p.setPeople(peopleMap.get(p.getIdPeople()));
             if (p.getIdPeopleTo() != null) {
@@ -153,8 +162,9 @@ public class PersonService {
     }
 
     private Long getAvailableId(SantaRunPeople people, List<Long> availableIds, Set<Long> alreadyTriedIds, Map<Long, Long> toFrom, boolean allowSameFromTo) {
-        Collections.shuffle(availableIds);
-        for (Long id : availableIds) {
+        List<Long> tempAvailableIds = new ArrayList<>(availableIds);
+        Collections.shuffle(tempAvailableIds);
+        for (Long id : tempAvailableIds) {
             if (id.equals(people.getIdPeople())  // we don't offer a gift to ourself
                     || people.getExcludedIds().contains(id)  // we don't offer a gift to an excluded person
                     || alreadyTriedIds.contains(id)  // Id already tried without success
@@ -166,9 +176,14 @@ public class PersonService {
         return null;
     }
 
-    public void sendMail(SantaRun santaRun) {
+    public MailReply sendMail(SantaRun santaRun) {
+        MailReply mailReply = new MailReply();
         Map<Long, People> peopleMap = getPeopleList().stream().collect(Collectors.toMap(People::getId, people -> people));
-        santaRun.getPeopleList().stream().filter(p -> !p.isMailSent()).forEach(p -> sendMail(p, peopleMap));
+        List<SantaRunPeople> toMail = santaRun.getPeopleList().stream().filter(p -> !p.isMailSent()).toList();
+        mailReply.setNbMail(toMail.size());
+        toMail.forEach(p -> sendMail(p, peopleMap));
+        mailReply.setSuccess(true);
+        return mailReply;
     }
 
     private void sendMail(SantaRunPeople santaRunPeople, Map<Long, People> peopleMap) {

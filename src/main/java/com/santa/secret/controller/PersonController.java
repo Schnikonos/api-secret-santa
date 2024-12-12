@@ -1,9 +1,6 @@
 package com.santa.secret.controller;
 
-import com.santa.secret.model.ComputeReply;
-import com.santa.secret.model.People;
-import com.santa.secret.model.Santa;
-import com.santa.secret.model.SantaRun;
+import com.santa.secret.model.*;
 import com.santa.secret.service.PersonService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,5 +96,10 @@ public class PersonController {
     @PostMapping(path = "compute/{santaId}")
     public ComputeReply compute(@PathVariable long santaId, @RequestBody SantaRun santaRun) {
         return personService.compute(santaId, santaRun);
+    }
+
+    @PostMapping(path = "mail")
+    public MailReply sendMail(@RequestBody SantaRun santaRun) {
+        return personService.sendMail(santaRun);
     }
 }

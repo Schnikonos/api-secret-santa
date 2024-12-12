@@ -28,7 +28,7 @@
         <id column="r_id_ser" property="id"/>
         <result column="r_creation_date" property="creationDate"/>
         <result column="r_last_update" property="lastUdpate"/>
-        <collection property="peopleList" resultMap="run"/>
+        <collection property="peopleList" resultMap="runPeople"/>
     </resultMap>
 
     <sql id="run">
@@ -43,7 +43,7 @@
         <result column="rp_id_peo" property="idPeople"/>
         <result column="rp_id_peo_to" property="idPeopleTo"/>
         <result column="rp_mail_sent" property="mailSent"/>
-        <collection property="peopleList" resultMap="exclusions"/>
+        <collection property="exclusions" resultMap="exclusions"/>
     </resultMap>
 
     <sql id="runPeople">
@@ -81,7 +81,7 @@
     </delete>
 
     <select id="getSantaList" resultMap="santa">
-        SELECT <include refid="santa"/> FROM secret_santa S
+        SELECT <include refid="santa"/> FROM secret_santa S ORDER BY S.last_update desc, S.id_sea desc
     </select>
 
     <select id="getSanta" resultMap="santa">
@@ -107,7 +107,10 @@
     </update>
 
     <select id="selectRunList" resultMap="run">
-        SELECT <include refid="run"/> FROM secret_santa_run R WHERE id_sea=#{idSanta} ORDER BY last_update desc
+        SELECT <include refid="run"/>, <include refid="runPeople"/>
+            FROM secret_santa_run R
+            LEFT JOIN secret_santa_run_people RP on R.id_ser = RP.id_ser
+            WHERE R.id_sea=#{idSanta} ORDER BY R.last_update desc, R.id_ser desc
     </select>
 
     <select id="selectRun" resultMap="run">
@@ -115,10 +118,10 @@
             FROM secret_santa_run R
             LEFT JOIN secret_santa_run_people RP on R.id_ser = RP.id_ser
             LEFT JOIN secret_santa_run_exclusion E on RP.id_srp = E.id_srp
-        WHERE id_ser=#{id}
+        WHERE R.id_ser=#{id}
     </select>
 
-    <insert id="insertRun" useGeneratedKeys="true" keyProperty="id" keyColumn="r.id_ser">
+    <insert id="insertRun" useGeneratedKeys="true" keyProperty="r.id" keyColumn="r.id_ser">
         INSERT INTO secret_santa_run (id_sea, creation_date, last_update)
         VALUES (#{idSea}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     </insert>
