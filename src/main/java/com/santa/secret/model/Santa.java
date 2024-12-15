@@ -10,8 +10,16 @@ import java.util.List;
 public class Santa {
     private Long id;
     private String name;
+    private String secretSantaDate;
+    private MailTemplate mailTemplate;
     private LocalDateTime creationDate;
     private LocalDateTime lastUpdate;
 
     private List<SantaRun> runs = new ArrayList<>();
+
+    public Santa sanitize() {
+        name = name.trim();
+        secretSantaDate = secretSantaDate.trim();
+        return this;
+    }
 }

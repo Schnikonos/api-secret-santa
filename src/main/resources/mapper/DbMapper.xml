@@ -2,18 +2,52 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.santa.secret.mapper.DbMapper">
-    <resultMap id="people" type="com.santa.secret.model.People">
-        <id column="id_peo" property="id"/>
-        <result column="name" property="name"/>
-        <result column="surname" property="surname"/>
-        <result column="email" property="email"/>
+    <resultMap id="mailTemplate" type="com.santa.secret.model.MailTemplate">
+        <id column="t_id_mat" property="id"/>
+        <result column="t_title" property="title"/>
+        <result column="t_template" property="template"/>
+        <result column="t_is_html" property="isHtml"/>
     </resultMap>
+
+    <sql id="mailTemplate">
+        T.id_mat AS t_id_mat,
+        T.name AS t_name,
+        T.title AS t_title,
+        T.template AS t_template,
+        T.is_html AS t_is_html
+    </sql>
+
+    <resultMap id="people" type="com.santa.secret.model.People">
+        <id column="p_id_peo" property="id"/>
+        <result column="p_name" property="name"/>
+        <result column="p_surname" property="surname"/>
+        <result column="p_email" property="email"/>
+        <collection property="groups" resultMap="peopleGroup"/>
+    </resultMap>
+
+    <sql id="people">
+        P.id_peo AS p_id_peo,
+        P.name AS p_name,
+        P.surname AS p_surname,
+        P.email AS p_email
+    </sql>
+
+    <resultMap id="peopleGroup" type="com.santa.secret.model.PeopleGroup">
+        <id column="g_id_peg" property="id"/>
+        <result column="g_name" property="name"/>
+    </resultMap>
+
+    <sql id="peopleGroup">
+        G.id_peg AS g_id_peg,
+        G.name AS g_name
+    </sql>
 
     <resultMap id="santa" type="com.santa.secret.model.Santa">
         <id column="s_id_sea" property="id"/>
         <result column="s_name" property="name"/>
         <result column="s_creation_date" property="creationDate"/>
         <result column="s_last_update" property="lastUpdate"/>
+        <association property="mailTemplate" resultMap="mailTemplate"/>
         <collection property="runs" resultMap="run"/>
     </resultMap>
 
@@ -62,14 +96,64 @@
         E.id_peo AS e_id_peo
     </sql>
 
+    <select id="getTemplates" resultMap="mailTemplate">
+        SELECT <include refid="mailTemplate"/> FROM mail_templates T order by T.name
+    </select>
+
+    <insert id="insertTemplate" parameterType="mailTemplate" keyColumn="id_mat" keyProperty="id" useGeneratedKeys="true">
+        INSERT INTO mail_templates (name, title, template, is_html)
+        VALUES (#{name}, #{title}, #{template}, #{isHtml})
+    </insert>
+
+    <update id="updateTemplate" parameterType="mailTemplate">
+        UPDATE mail_templates SET name=#{name}, title=#{title}, template=#{template}, is_html=#{isHtml}
+        WHERE id_mat=#{id}
+    </update>
+
+    <delete id="deleteTemplate">
+        DELETE FROM mail_templates WHERE id_mat=#{id}
+    </delete>
+
     <select id="getPeopleList" resultMap="people">
-        SELECT * FROM PEOPLE ORDER BY name, surname
+        SELECT <include refid="people"/>, <include refid="peopleGroup"/>
+        FROM PEOPLE P
+        LEFT JOIN PEOPLE_GROUP_MAPPING M ON P.id_peo = M.id_peo
+        LEFT JOIN people_group G ON M.id_peg = G.id_peg
+        ORDER BY P.name, P.surname, G.name
     </select>
 
     <insert id="insertPeople" useGeneratedKeys="true" keyProperty="id" keyColumn="id_peo" parameterType="com.santa.secret.model.People">
         INSERT INTO people(name, surname, email)
         VALUES (#{name,jdbcType=VARCHAR}, #{surname,jdbcType=VARCHAR}, #{email,jdbcType=VARCHAR})
     </insert>
+
+    <select id="getPeopleGroupList" resultMap="peopleGroup">
+        SELECT <include refid="peopleGroup"/> FROM people_group G order by name;
+    </select>
+
+    <insert id="insertPeopleGroup" useGeneratedKeys="true" keyProperty="id" keyColumn="id_peg" parameterType="com.santa.secret.model.PeopleGroup">
+        INSERT INTO people_group(name) VALUES (#{name})
+    </insert>
+
+    <update id="updatePeopleGroup" parameterType="com.santa.secret.model.PeopleGroup">
+        UPDATE people_group SET name=#{name} WHERE id_peg=#{idPeg}
+    </update>
+
+    <insert id="insertPeopleGroupMapping">
+        INSERT INTO people_group_mapping(id_peo, id_peg) VALUES (#{idPeo}, #{idPeg})
+    </insert>
+
+    <delete id="clearPeopleGroup">
+        DELETE FROM people_group_mapping WHERE id_peo=#{idPeo}
+    </delete>
+
+    <delete id="deletePeopleGroup">
+        DELETE FROM people_group WHERE id_peg=#{idPeg}
+    </delete>
+
+    <delete id="purgePeopleGroup">
+        DELETE FROM people_group WHERE id_peg NOT IN (SELECT id_peg from people_group)
+    </delete>
 
     <update id="updatePeople" parameterType="com.santa.secret.model.People">
         UPDATE people SET name=#{name,jdbcType=VARCHAR}, surname=#{surname,jdbcType=VARCHAR}, email=#{email,jdbcType=VARCHAR}
@@ -81,25 +165,31 @@
     </delete>
 
     <select id="getSantaList" resultMap="santa">
-        SELECT <include refid="santa"/> FROM secret_santa S ORDER BY S.last_update desc, S.id_sea desc
+        SELECT <include refid="santa"/>, <include refid="mailTemplate"/>
+        FROM secret_santa S LEFT JOIN mail_templates t on S.id_mat = t.id_mat
+        ORDER BY S.last_update desc, S.id_sea desc
     </select>
 
     <select id="getSanta" resultMap="santa">
-        SELECT <include refid="santa"/> FROM secret_santa S WHERE id_sea=#{id}
+        SELECT <include refid="santa"/>, <include refid="mailTemplate"/>
+        FROM secret_santa S LEFT JOIN mail_templates t on S.id_mat = t.id_mat
+        WHERE id_sea=#{id}
     </select>
 
     <select id="getLastSanta" resultMap="santa">
-        SELECT <include refid="santa"/> FROM secret_santa S order by last_update desc limit 1
+        SELECT <include refid="santa"/>, <include refid="mailTemplate"/>
+        FROM secret_santa S LEFT JOIN mail_templates t on S.id_mat = t.id_mat
+        order by last_update desc limit 1
     </select>
 
-    <insert id="insertSanta" parameterType="Santa" keyColumn="id_sea" keyProperty="id" useGeneratedKeys="true">
-        INSERT INTO secret_santa (name, creation_date, last_update)
-        VALUES (#{name,jdbcType=VARCHAR}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    <insert id="insertSanta" keyColumn="id_sea" keyProperty="santa.id" useGeneratedKeys="true">
+        INSERT INTO secret_santa (name, id_mat, creation_date, last_update)
+        VALUES (#{santa.name,jdbcType=VARCHAR}, #{idTemplate,jdbcType=INTEGER}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     </insert>
 
-    <update id="updateSanta" parameterType="Santa">
-        UPDATE secret_santa SET name=#{name,jdbcType=VARCHAR}, last_update=CURRENT_TIMESTAMP
-        WHERE id_sea=#{id}
+    <update id="updateSanta">
+        UPDATE secret_santa SET name=#{santa.name,jdbcType=VARCHAR}, id_mat=#{idTemplate,jdbcType=INTEGER}, last_update=CURRENT_TIMESTAMP
+        WHERE id_sea=#{santa.id}
     </update>
 
     <update id="deleteSanta">

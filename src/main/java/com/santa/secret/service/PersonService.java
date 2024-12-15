@@ -1,12 +1,27 @@
 package com.santa.secret.service;
 
 import com.santa.secret.mapper.DbMapper;
-import com.santa.secret.model.*;
+import com.santa.secret.model.ComputeReply;
+import com.santa.secret.model.MailTemplate;
+import com.santa.secret.model.People;
+import com.santa.secret.model.PeopleGroup;
+import com.santa.secret.model.Santa;
+import com.santa.secret.model.SantaRun;
+import com.santa.secret.model.SantaRunExclusion;
+import com.santa.secret.model.SantaRunPeople;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -14,11 +29,16 @@ import java.util.stream.Collectors;
 public class PersonService {
     private final DbMapper dbMapper;
     private final EmailService emailService;
+    private List<MailTemplate> templates;
+    private MailTemplate defaultTemplate;
 
     @Autowired
     public PersonService(DbMapper dbMapper, EmailService emailService) {
         this.dbMapper = dbMapper;
         this.emailService = emailService;
+
+        dbMapper.purgePeopleGroup();
+
     }
 
     public ComputeReply compute(Long idSanta, SantaRun santaRun) {
@@ -65,11 +85,11 @@ public class PersonService {
             if (isOk) {
                 return true;
             }
-            if (peopleList.stream().noneMatch(p -> p.getIdPeopleTo() != null)) {
+            if (peopleList.stream().noneMatch(p -> p.getIdPeopleTo() != null && !p.isLocked())) {
                 return false;
             }
             Map<Long, Long> scoreMap = computePeopleListScore(peopleList);
-            peopleList.stream().filter(p -> p.getIdPeopleTo() != null)
+            peopleList.stream().filter(p -> p.getIdPeopleTo() != null && !p.isLocked())
                     .min(Comparator.comparing(p -> scoreMap.get(p.getIdPeople())))
                     .ifPresent(p -> p.setIdPeopleTo(null)); // purpose is to add more people in the loop, starting with the ones with the less restrictions
             res.setNbChanged(res.getNbChanged() + 1);
@@ -176,36 +196,43 @@ public class PersonService {
         return null;
     }
 
-    public MailReply sendMail(SantaRun santaRun) {
-        MailReply mailReply = new MailReply();
-        Map<Long, People> peopleMap = getPeopleList().stream().collect(Collectors.toMap(People::getId, people -> people));
-        List<SantaRunPeople> toMail = santaRun.getPeopleList().stream().filter(p -> !p.isMailSent()).toList();
-        mailReply.setNbMail(toMail.size());
-        toMail.forEach(p -> sendMail(p, peopleMap));
-        mailReply.setSuccess(true);
-        return mailReply;
-    }
-
-    private void sendMail(SantaRunPeople santaRunPeople, Map<Long, People> peopleMap) {
-        emailService.sendMail(santaRunPeople, peopleMap);
-        santaRunPeople.setMailSent(true);
-        dbMapper.updateRunPeople(santaRunPeople);
-        People people = peopleMap.get(santaRunPeople.getId());
-        log.info("sent mail to {} {} -> {}", people.getName(), people.getSurname(), people.getEmail());
-    }
-
     public List<People> getPeopleList() {
         return dbMapper.getPeopleList();
     }
 
     public People insertPeople(People people) {
-        dbMapper.insertPeople(people);
+        dbMapper.insertPeople(people.sanitize());
+        people.getGroups().forEach(g -> insertGroupMapping(people, g));
         return people;
     }
 
+    private void insertGroupMapping(People people, PeopleGroup group) {
+        dbMapper.insertPeopleGroupMapping(people.getId(), group.getId());
+    }
+
     public People updatePeople(People people) {
-        dbMapper.updatePeople(people);
+        dbMapper.updatePeople(people.sanitize());
+        dbMapper.clearPeopleGroup(people.getId());
+        people.getGroups().forEach(g -> insertGroupMapping(people, g));
         return people;
+    }
+
+    public List<PeopleGroup> getPeopleGroupList() {
+        return dbMapper.getPeopleGroupList();
+    }
+
+    public PeopleGroup insertPeopleGroup(PeopleGroup peopleGroup) {
+        dbMapper.insertPeopleGroup(peopleGroup);
+        return peopleGroup;
+    }
+
+    public PeopleGroup updatePeopleGroup(PeopleGroup peopleGroup) {
+        dbMapper.updatePeopleGroup(peopleGroup);
+        return peopleGroup;
+    }
+
+    public void deletePeopleGroup(long id) {
+        dbMapper.deletePeopleGroup(id);
     }
 
     public void deletePeople(long id) {
@@ -225,12 +252,12 @@ public class PersonService {
     }
 
     public Santa insertSanta(Santa santa) {
-        dbMapper.insertSanta(santa);
+        dbMapper.insertSanta(santa.sanitize(), null);
         return santa;
     }
 
     public Santa updateSanta(Santa santa) {
-        dbMapper.updateSanta(santa);
+        dbMapper.updateSanta(santa.sanitize(), null);
         return santa;
     }
 

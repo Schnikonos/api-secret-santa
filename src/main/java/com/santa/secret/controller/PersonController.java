@@ -1,15 +1,27 @@
 package com.santa.secret.controller;
 
-import com.santa.secret.model.*;
+import com.santa.secret.model.ComputeReply;
+import com.santa.secret.model.People;
+import com.santa.secret.model.PeopleGroup;
+import com.santa.secret.model.Santa;
+import com.santa.secret.model.SantaRun;
 import com.santa.secret.service.PersonService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @Slf4j
 @RestController
+@RequestMapping(path = "person")
 @CrossOrigin(origins={"http://localhost:3000"})
 public class PersonController {
     private final PersonService personService;
@@ -33,6 +45,28 @@ public class PersonController {
         } else {
             return personService.updatePeople(people);
         }
+    }
+
+    @GetMapping(path = "people-group")
+    public List<PeopleGroup> getPeopleGroup() {
+        log.info("get-people-group");
+        return personService.getPeopleGroupList();
+    }
+
+    @PostMapping(path = "people-group")
+    public PeopleGroup addPeopleGroup(@RequestBody PeopleGroup peopleGroup) {
+        log.info("add-people-group");
+        if (peopleGroup.getId() == null) {
+            return personService.insertPeopleGroup(peopleGroup);
+        } else {
+            return personService.updatePeopleGroup(peopleGroup);
+        }
+    }
+
+    @DeleteMapping(path = "people-group/{id}")
+    public void deletePeopleGroup(@PathVariable Long id) {
+        log.info("delete-people-group");
+        personService.deletePeopleGroup(id);
     }
 
     @DeleteMapping(path = "people/{id}")
@@ -96,10 +130,5 @@ public class PersonController {
     @PostMapping(path = "compute/{santaId}")
     public ComputeReply compute(@PathVariable long santaId, @RequestBody SantaRun santaRun) {
         return personService.compute(santaId, santaRun);
-    }
-
-    @PostMapping(path = "mail")
-    public MailReply sendMail(@RequestBody SantaRun santaRun) {
-        return personService.sendMail(santaRun);
     }
 }

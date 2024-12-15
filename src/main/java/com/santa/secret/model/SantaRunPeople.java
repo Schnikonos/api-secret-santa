@@ -16,6 +16,7 @@ public class SantaRunPeople {
     private Long idPeopleFrom;
     private Long idPeopleTo;
     private boolean mailSent;
+    private boolean locked;
     private List<SantaRunExclusion> exclusions = new ArrayList<>();
 
     private Set<Long> excludedIds = new HashSet<>();
