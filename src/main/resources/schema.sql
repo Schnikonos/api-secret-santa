@@ -1,17 +1,12 @@
+
 CREATE TABLE IF NOT EXISTS mail_templates (
     id_mat INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR2(50),
     title VARCHAR2(100),
     template TEXT,
-    is_html VARCHAR2(1)
+    mail_type VARCHAR2(10)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_mail_templates ON mail_templates(name);
-
-CREATE TABLE IF NOT EXISTS app_params (
-    mail_user VARCHAR2(200),
-    mail_password VARCHAR2(200),
-    mail_port INTEGER
-);
 
 CREATE TABLE IF NOT EXISTS people (
      id_peo INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -6,7 +6,7 @@
         <id column="t_id_mat" property="id"/>
         <result column="t_title" property="title"/>
         <result column="t_template" property="template"/>
-        <result column="t_is_html" property="isHtml"/>
+        <result column="t_mail_type" property="typeMail"/>
     </resultMap>
 
     <sql id="mailTemplate">
@@ -14,7 +14,7 @@
         T.name AS t_name,
         T.title AS t_title,
         T.template AS t_template,
-        T.is_html AS t_is_html
+        T.mail_type AS t_mail_type
     </sql>
 
     <resultMap id="people" type="com.santa.secret.model.People">
@@ -45,7 +45,9 @@
     <resultMap id="santa" type="com.santa.secret.model.Santa">
         <id column="s_id_sea" property="id"/>
         <result column="s_name" property="name"/>
+        <result column="s_secret_santa_date" property="secretSantaDate"/>
         <result column="s_creation_date" property="creationDate"/>
+        <result column="s_id_mat" property="creationDate"/>
         <result column="s_last_update" property="lastUpdate"/>
         <association property="mailTemplate" resultMap="mailTemplate"/>
         <collection property="runs" resultMap="run"/>
@@ -54,6 +56,7 @@
     <sql id="santa">
         S.id_sea AS s_id_sea,
         S.name AS s_name,
+        S.secret_santa_date AS s_secret_santa_date,
         S.creation_date AS s_creation_date,
         S.last_update AS s_last_update
     </sql>
@@ -101,12 +104,12 @@
     </select>
 
     <insert id="insertTemplate" parameterType="mailTemplate" keyColumn="id_mat" keyProperty="id" useGeneratedKeys="true">
-        INSERT INTO mail_templates (name, title, template, is_html)
-        VALUES (#{name}, #{title,jdbcType=VARCHAR}, #{template,jdbcType=VARCHAR}, #{isHtml})
+        INSERT INTO mail_templates (name, title, template, mail_type)
+        VALUES (#{name}, #{title,jdbcType=VARCHAR}, #{template,jdbcType=VARCHAR}, #{typeMail})
     </insert>
 
     <update id="updateTemplate" parameterType="mailTemplate">
-        UPDATE mail_templates SET name=#{name}, title=#{title,jdbcType=VARCHAR}, template=#{template,jdbcType=VARCHAR}, is_html=#{isHtml}
+        UPDATE mail_templates SET name=#{name}, title=#{title,jdbcType=VARCHAR}, template=#{template,jdbcType=VARCHAR}, mail_type=#{typeMail}
         WHERE id_mat=#{id}
     </update>
 
@@ -165,8 +168,7 @@
     </delete>
 
     <select id="getSantaList" resultMap="santa">
-        SELECT <include refid="santa"/>, <include refid="mailTemplate"/>
-        FROM secret_santa S LEFT JOIN mail_templates t on S.id_mat = t.id_mat
+        SELECT <include refid="santa"/> FROM secret_santa S
         ORDER BY S.last_update desc, S.id_sea desc
     </select>
 
@@ -183,12 +185,12 @@
     </select>
 
     <insert id="insertSanta" keyColumn="id_sea" keyProperty="santa.id" useGeneratedKeys="true">
-        INSERT INTO secret_santa (name, id_mat, creation_date, last_update)
-        VALUES (#{santa.name,jdbcType=VARCHAR}, #{idTemplate,jdbcType=INTEGER}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        INSERT INTO secret_santa (name, id_mat, secret_santa_date, creation_date, last_update)
+        VALUES (#{santa.name,jdbcType=VARCHAR}, #{idTemplate,jdbcType=INTEGER}, #{santa.secretSantaDate,jdbcType=VARCHAR}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     </insert>
 
     <update id="updateSanta">
-        UPDATE secret_santa SET name=#{santa.name,jdbcType=VARCHAR}, id_mat=#{idTemplate,jdbcType=INTEGER}, last_update=CURRENT_TIMESTAMP
+        UPDATE secret_santa SET name=#{santa.name,jdbcType=VARCHAR}, id_mat=#{idTemplate,jdbcType=INTEGER}, secret_santa_date=#{santa.secretSantaDate,jdbcType=VARCHAR}, last_update=CURRENT_TIMESTAMP
         WHERE id_sea=#{santa.id}
     </update>
 

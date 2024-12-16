@@ -12,26 +12,34 @@ import com.santa.secret.mapper.DbMapper;
 import com.santa.secret.model.MailReply;
 import com.santa.secret.model.MailTemplate;
 import com.santa.secret.model.MailTest;
+import com.santa.secret.model.MailType;
 import com.santa.secret.model.People;
 import com.santa.secret.model.Santa;
 import com.santa.secret.model.SantaRun;
 import com.santa.secret.model.SantaRunPeople;
+import jakarta.mail.BodyPart;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
+import jakarta.mail.Session;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.BufferedReader;
-import java.io.IOException;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -40,32 +48,22 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class EmailService {
-    private final JavaMailSender mailSender;
     private final DbMapper dbMapper;
 
     private final MailTemplate basicDefaultMailTemplate;
-    private MailTemplate defaultMailTemplate;
 
     private String token = null;
 
     @Autowired
-    public EmailService(JavaMailSender mailSender, DbMapper dbMapper) throws IOException {
-        this.mailSender = mailSender;
+    public EmailService(DbMapper dbMapper) {
         this.dbMapper = dbMapper;
 
         basicDefaultMailTemplate = new MailTemplate();
         basicDefaultMailTemplate.setId(0L);
         basicDefaultMailTemplate.setName("0_Default Template");
         basicDefaultMailTemplate.setTitle("Secret Santa Time !");
-        basicDefaultMailTemplate.setTemplate(getResourceContent("templates/DefaultTemplate.html"));
-
-        List<MailTemplate> mailTemplates = dbMapper.getTemplates();
-        defaultMailTemplate = mailTemplates.stream().min(Comparator.comparing(MailTemplate::getId)).orElse(null);
-        if (defaultMailTemplate == null) {
-            mailTemplates.add(basicDefaultMailTemplate);
-            dbMapper.insertTemplate(basicDefaultMailTemplate);
-            defaultMailTemplate = basicDefaultMailTemplate;
-        }
+        basicDefaultMailTemplate.setTemplate(getResourceContent("templates/DefaultTemplate.eml"));
+        basicDefaultMailTemplate.setTypeMail(MailType.eml);
     }
 
     public boolean isTokenValid() {
@@ -138,7 +136,7 @@ public class EmailService {
     }
 
     @SneakyThrows
-    private void sendEmail(String to, String subject, String bodyText) {
+    private void sendEmail(MimeMessage email) {
         AccessToken accessToken = new AccessToken(token, new Date(System.currentTimeMillis() + 3600 * 1000));
         GoogleCredentials credentials = GoogleCredentials.create(accessToken).createScoped(Collections.singletonList(GmailScopes.GMAIL_SEND));
 
@@ -148,15 +146,14 @@ public class EmailService {
                 new HttpCredentialsAdapter(credentials)
         ).setApplicationName("Secret Santa").build();
 
-        // Create email
-        String rawEmail = "To: " + to + "\r\n" +
-                "Subject: " + subject + "\r\n" +
-                "\r\n" + bodyText;
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        email.writeTo(buffer);
+        byte[] rawMessageBytes = buffer.toByteArray();
+        String encodedEmail = Base64.encodeBase64URLSafeString(rawMessageBytes);
 
         Message message = new Message();
-        message.setRaw(Base64.getUrlEncoder().encodeToString(rawEmail.getBytes()));
+        message.setRaw(encodedEmail);
 
-        // Send email
         service.users().messages().send("me", message).execute();
     }
 
@@ -185,17 +182,37 @@ public class EmailService {
 
         try {
             MailTemplate mailTemplate = santa.getMailTemplate();
-            String title = fillMail(mailTemplate.getTitle(), santa, peopleFrom, peopleTo);
-            String body = fillMail(mailTemplate.getTemplate(), santa, peopleFrom, peopleTo);
-
-            sendEmail(peopleFrom.getEmail(), title, body);
-
+            sendEmail(toMimeMessage(mailTemplate, santa, peopleFrom, peopleTo));
             santaRunPeople.setMailSent(true);
             dbMapper.updateRunPeople(santaRunPeople);
         } catch (Exception e) {
             String person = peopleFrom == null ? String.format("%s -> no associated people", santaRunPeople.getIdPeople()) : String.format("%s-%s %s", peopleFrom.getName(), peopleFrom.getSurname(), peopleFrom.getEmail());
             log.error("Issue sending mail to [{}]", person, e);
         }
+    }
+
+    @SneakyThrows
+    private MimeMessage toMimeMessage(MailTemplate mailTemplate, Santa santa, People peopleFrom, People peopleTo) {
+        MimeMessage mimeMessage;
+        if (MailType.eml.equals(mailTemplate.getTypeMail())) {
+            InputStream inputStream = new ByteArrayInputStream(mailTemplate.getTemplate().getBytes(StandardCharsets.UTF_8));
+            MimeMessage templateMessage = new MimeMessage(null, inputStream);
+            modifyMimeMessage(templateMessage, santa, peopleFrom, peopleTo);
+            mimeMessage = new MimeMessage((Session) null);
+            mimeMessage.setContent(templateMessage.getContent(), templateMessage.getContentType());
+        } else {
+            mimeMessage = new MimeMessage((Session) null);
+            String body = fillMail(mailTemplate.getTemplate(), santa, peopleFrom, peopleTo);
+            mimeMessage.setText(body, "UTF-8", MailType.html.equals(mailTemplate.getTypeMail()) ? "html" : "plain");
+        }
+
+        // Modify sender and recipient
+        mimeMessage.setFrom(new InternetAddress("no-reply@gmail.com"));
+        mimeMessage.setRecipients(jakarta.mail.Message.RecipientType.TO, InternetAddress.parse(peopleFrom.getEmail()));
+        String title = fillMail(mailTemplate.getTitle(), santa, peopleFrom, peopleTo);
+        mimeMessage.setSubject(title);
+
+        return mimeMessage;
     }
 
     private String fillMail(String msg, Santa santa, People peopleFrom, People peopleTo) {
@@ -205,5 +222,26 @@ public class EmailService {
                 .replace("{{fromSurname}}", peopleFrom.getSurname())
                 .replace("{{toName}}", peopleTo.getName())
                 .replace("{{toSurname}}", peopleTo.getSurname());
+    }
+
+    @SneakyThrows
+    private void modifyMimeMessage(Part part, Santa santa, People peopleFrom, People peopleTo) {
+        if (part.isMimeType("text/plain") || part.isMimeType("text/html")) {
+            // Replace placeholders in text content
+            String content = (String) part.getContent();
+            String modifiedContent = fillMail(content, santa, peopleFrom, peopleTo);
+            if (part.isMimeType("text/html")) {
+                part.setContent(modifiedContent, "text/html; charset=UTF-8");
+            } else {
+                part.setContent(modifiedContent, "text/plain; charset=UTF-8");
+            }
+        } else if (part.isMimeType("multipart/*")) {
+            // Handle multipart content recursively
+            Multipart multipart = (Multipart) part.getContent();
+            for (int i = 0; i < multipart.getCount(); i++) {
+                BodyPart bodyPart = multipart.getBodyPart(i);
+                modifyMimeMessage(bodyPart, santa, peopleFrom, peopleTo);
+            }
+        }
     }
 }

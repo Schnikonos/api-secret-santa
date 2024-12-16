@@ -8,7 +8,7 @@ public class MailTemplate {
     private String name;
     private String title;
     private String template;
-    private boolean isHtml;
+    private MailType typeMail;
 
     public MailTemplate sanitize() {
         name = name.trim();
