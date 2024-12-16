@@ -105,13 +105,13 @@ public class PersonService {
         List<SantaRunPeople> activePeopleList = peopleList.stream().filter(p -> p.getIdPeopleTo() == null).toList();
         Set<Long> idActivePeople = activePeopleList.stream().map(SantaRunPeople::getIdPeople).collect(Collectors.toSet());
         Map<Long, Long> exclusionsCount = new HashMap<>();
-        for (SantaRunPeople p : activePeopleList) {
+        for (SantaRunPeople p : peopleList) {
             p.getExcludedIds().forEach(e -> exclusionsCount.put(e, exclusionsCount.getOrDefault(e, 0L) + 1)); // we count the number of time each person has been excluded by different people
         }
 
         for (SantaRunPeople p : peopleList) {
             long exclusionMatch = p.getExcludedIds().stream().filter(idActivePeople::contains).count(); // we count the number of active people that are part of the exclusion
-            scores.put(p.getIdPeople(), exclusionMatch + exclusionsCount.get(p.getIdPeople()));
+            scores.put(p.getIdPeople(), exclusionMatch + exclusionsCount.getOrDefault(p.getIdPeople(), 0L));
         }
         return scores;
     }

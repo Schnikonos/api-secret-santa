@@ -102,11 +102,11 @@
 
     <insert id="insertTemplate" parameterType="mailTemplate" keyColumn="id_mat" keyProperty="id" useGeneratedKeys="true">
         INSERT INTO mail_templates (name, title, template, is_html)
-        VALUES (#{name}, #{title}, #{template}, #{isHtml})
+        VALUES (#{name}, #{title,jdbcType=VARCHAR}, #{template,jdbcType=VARCHAR}, #{isHtml})
     </insert>
 
     <update id="updateTemplate" parameterType="mailTemplate">
-        UPDATE mail_templates SET name=#{name}, title=#{title}, template=#{template}, is_html=#{isHtml}
+        UPDATE mail_templates SET name=#{name}, title=#{title,jdbcType=VARCHAR}, template=#{template,jdbcType=VARCHAR}, is_html=#{isHtml}
         WHERE id_mat=#{id}
     </update>
 

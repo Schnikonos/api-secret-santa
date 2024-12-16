@@ -19,7 +19,7 @@ public class Santa {
 
     public Santa sanitize() {
         name = name.trim();
-        secretSantaDate = secretSantaDate.trim();
+        secretSantaDate = secretSantaDate != null ? secretSantaDate.trim() : null;
         return this;
     }
 }
