@@ -40,6 +40,21 @@ public class EmailController {
         return emailService.getMailTemplates();
     }
 
+    @GetMapping("template/{id}")
+    public MailTemplate getTemplate(@PathVariable long id) {
+        return emailService.getMailTemplateForDisplay(id);
+    }
+
+    @GetMapping("template/default")
+    public MailTemplate getDefaultTemplate() {
+        return emailService.getDefaultTemplate();
+    }
+
+    @PostMapping("template/preview")
+    public MailTemplate previewTemplate(@RequestBody MailTemplate mailTemplate) {
+        return emailService.previewMailTemplate(mailTemplate);
+    }
+
     @PostMapping(path = "template")
     public MailTemplate setTemplate(@RequestBody MailTemplate mailTemplate) {
         return emailService.setTemplate(mailTemplate);

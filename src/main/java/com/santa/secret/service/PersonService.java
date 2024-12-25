@@ -252,12 +252,12 @@ public class PersonService {
     }
 
     public Santa insertSanta(Santa santa) {
-        dbMapper.insertSanta(santa.sanitize(), null);
+        dbMapper.insertSanta(santa.sanitize(), santa.getMailTemplate() != null ? santa.getMailTemplate().getId() : null);
         return santa;
     }
 
     public Santa updateSanta(Santa santa) {
-        dbMapper.updateSanta(santa.sanitize(), null);
+        dbMapper.updateSanta(santa.sanitize(), santa.getMailTemplate() != null ? santa.getMailTemplate().getId() : null);
         return santa;
     }
 

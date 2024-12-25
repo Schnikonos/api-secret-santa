@@ -26,6 +26,7 @@ public interface DbMapper {
     void purgePeopleGroup();
 
     List<MailTemplate> getTemplates();
+    MailTemplate getTemplate(Long id);
     void insertTemplate(MailTemplate mailTemplate);
     void updateTemplate(MailTemplate mailTemplate);
     void deleteTemplate(Long id);

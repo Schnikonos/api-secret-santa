@@ -4,10 +4,18 @@
 <mapper namespace="com.santa.secret.mapper.DbMapper">
     <resultMap id="mailTemplate" type="com.santa.secret.model.MailTemplate">
         <id column="t_id_mat" property="id"/>
+        <result column="t_name" property="name"/>
         <result column="t_title" property="title"/>
         <result column="t_template" property="template"/>
         <result column="t_mail_type" property="typeMail"/>
     </resultMap>
+
+    <sql id="mailTemplateShort">
+        T.id_mat AS t_id_mat,
+        T.name AS t_name,
+        T.title AS t_title,
+        T.mail_type AS t_mail_type
+    </sql>
 
     <sql id="mailTemplate">
         T.id_mat AS t_id_mat,
@@ -100,7 +108,11 @@
     </sql>
 
     <select id="getTemplates" resultMap="mailTemplate">
-        SELECT <include refid="mailTemplate"/> FROM mail_templates T order by T.name
+        SELECT <include refid="mailTemplateShort"/> FROM mail_templates T order by T.name
+    </select>
+
+    <select id="getTemplate" resultMap="mailTemplate">
+        SELECT <include refid="mailTemplate"/> FROM mail_templates T WHERE T.id_mat=#{id}
     </select>
 
     <insert id="insertTemplate" parameterType="mailTemplate" keyColumn="id_mat" keyProperty="id" useGeneratedKeys="true">
@@ -168,18 +180,18 @@
     </delete>
 
     <select id="getSantaList" resultMap="santa">
-        SELECT <include refid="santa"/> FROM secret_santa S
+        SELECT <include refid="santa"/>, <include refid="mailTemplateShort"/> FROM secret_santa S LEFT JOIN mail_templates t on S.id_mat = t.id_mat
         ORDER BY S.last_update desc, S.id_sea desc
     </select>
 
     <select id="getSanta" resultMap="santa">
-        SELECT <include refid="santa"/>, <include refid="mailTemplate"/>
+        SELECT <include refid="santa"/>, <include refid="mailTemplateShort"/>
         FROM secret_santa S LEFT JOIN mail_templates t on S.id_mat = t.id_mat
         WHERE id_sea=#{id}
     </select>
 
     <select id="getLastSanta" resultMap="santa">
-        SELECT <include refid="santa"/>, <include refid="mailTemplate"/>
+        SELECT <include refid="santa"/>, <include refid="mailTemplateShort"/>
         FROM secret_santa S LEFT JOIN mail_templates t on S.id_mat = t.id_mat
         order by last_update desc limit 1
     </select>

@@ -11,7 +11,6 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.santa.secret.mapper.DbMapper;
 import com.santa.secret.model.MailReply;
 import com.santa.secret.model.MailTemplate;
-import com.santa.secret.model.MailTest;
 import com.santa.secret.model.MailType;
 import com.santa.secret.model.People;
 import com.santa.secret.model.Santa;
@@ -26,6 +25,7 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
@@ -39,8 +39,10 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -59,8 +61,7 @@ public class EmailService {
         this.dbMapper = dbMapper;
 
         basicDefaultMailTemplate = new MailTemplate();
-        basicDefaultMailTemplate.setId(0L);
-        basicDefaultMailTemplate.setName("0_Default Template");
+        basicDefaultMailTemplate.setName("Default Template");
         basicDefaultMailTemplate.setTitle("Secret Santa Time !");
         basicDefaultMailTemplate.setTemplate(getResourceContent("templates/DefaultTemplate.eml"));
         basicDefaultMailTemplate.setTypeMail(MailType.eml);
@@ -113,6 +114,29 @@ public class EmailService {
         return dbMapper.getTemplates();
     }
 
+    public MailTemplate getMailTemplate(long id) {
+        return dbMapper.getTemplate(id);
+    }
+
+    public MailTemplate getMailTemplateForDisplay(long id) {
+        MailTemplate mailTemplate = dbMapper.getTemplate(id);
+        formatEmlFile(mailTemplate);
+        return mailTemplate;
+    }
+
+    public MailTemplate getDefaultTemplate() {
+        if (basicDefaultMailTemplate.getEmlFormattedContent() != null) {
+            return basicDefaultMailTemplate;
+        }
+        formatEmlFile(basicDefaultMailTemplate);
+        return basicDefaultMailTemplate;
+    }
+
+    public MailTemplate previewMailTemplate(MailTemplate mailTemplate) {
+        formatEmlFile(mailTemplate);
+        return mailTemplate;
+    }
+
     public MailTemplate setTemplate(MailTemplate mailTemplate) {
         if (mailTemplate.getId() == null) {
             dbMapper.insertTemplate(mailTemplate.sanitize());
@@ -123,16 +147,7 @@ public class EmailService {
     }
 
     public void deleteMailTemplate(Long id) {
-        if (id == 0) {
-            dbMapper.updateTemplate(basicDefaultMailTemplate);
-        } else {
-            dbMapper.deleteTemplate(id);
-        }
-    }
-
-    @SneakyThrows
-    public void test(MailTest test) {
-
+        dbMapper.deleteTemplate(id);
     }
 
     @SneakyThrows
@@ -167,27 +182,32 @@ public class EmailService {
         Map<Long, People> peopleMap = dbMapper.getPeopleList().stream().collect(Collectors.toMap(People::getId, people -> people));
 
         MailReply mailReply = new MailReply();
-        mailReply.setNbMail(peopleList.size());
-        peopleList.forEach(p -> sendMail(santa, p, peopleMap));
+        peopleList.forEach(p -> sendMail(santa, p, peopleMap, mailReply));
         mailReply.setSuccess(true);
         return mailReply;
     }
 
-    private void sendMail(Santa santa, SantaRunPeople santaRunPeople, Map<Long, People> peopleMap) {
-        if (santa.getMailTemplate() == null) {
-            santa.setMailTemplate(basicDefaultMailTemplate);
-        }
+    private void sendMail(Santa santa, SantaRunPeople santaRunPeople, Map<Long, People> peopleMap, MailReply mailReply) {
         People peopleFrom = peopleMap.get(santaRunPeople.getIdPeople());
-        People peopleTo = peopleMap.get(santaRunPeople.getIdPeopleTo());
-
         try {
+            if (santa.getMailTemplate() == null || santa.getMailTemplate().getId() == null) {
+                santa.setMailTemplate(basicDefaultMailTemplate);
+            } else {
+                santa.setMailTemplate(dbMapper.getTemplate(santa.getMailTemplate().getId()));
+            }
+
+            People peopleTo = peopleMap.get(santaRunPeople.getIdPeopleTo());
+
             MailTemplate mailTemplate = santa.getMailTemplate();
             sendEmail(toMimeMessage(mailTemplate, santa, peopleFrom, peopleTo));
             santaRunPeople.setMailSent(true);
             dbMapper.updateRunPeople(santaRunPeople);
+            mailReply.getIdMailsSent().add(santaRunPeople.getIdPeople());
+            mailReply.setNbMailSuccess(mailReply.getNbMailSuccess() + 1);
         } catch (Exception e) {
             String person = peopleFrom == null ? String.format("%s -> no associated people", santaRunPeople.getIdPeople()) : String.format("%s-%s %s", peopleFrom.getName(), peopleFrom.getSurname(), peopleFrom.getEmail());
             log.error("Issue sending mail to [{}]", person, e);
+            mailReply.setNbMailError(mailReply.getNbMailError() + 1);
         }
     }
 
@@ -242,6 +262,72 @@ public class EmailService {
                 BodyPart bodyPart = multipart.getBodyPart(i);
                 modifyMimeMessage(bodyPart, santa, peopleFrom, peopleTo);
             }
+        }
+    }
+
+    @SneakyThrows
+    private void formatEmlFile(MailTemplate mailTemplate) {
+        if (!MailType.eml.equals(mailTemplate.getTypeMail())) {
+            return;
+        }
+
+        InputStream inputStream = new ByteArrayInputStream(mailTemplate.getTemplate().getBytes(StandardCharsets.UTF_8));
+        MimeMessage templateMessage = new MimeMessage(null, inputStream);
+
+        // Data to store parsed content
+        Map<String, Object> emailData = new HashMap<>();
+        StringBuilder body = new StringBuilder();
+        Map<String, String> inlineImages = new HashMap<>();
+        emailData.put("body", body);
+        emailData.put("inlineImages", inlineImages);
+        emailData.put("attachments", new ArrayList<Map<String, Object>>());
+
+        parsePart(templateMessage, emailData);
+        String bodyText = body.toString();
+
+        for (Map.Entry<String, String> entry : inlineImages.entrySet()) {
+            bodyText = bodyText.replace("cid:" + entry.getKey(), entry.getValue());
+        }
+
+        mailTemplate.setEmlFormattedContent(bodyText);
+    }
+
+    private void parsePart(Part part, Map<String, Object> emailData) throws Exception {
+        if (part.isMimeType("text/html")) {
+            // HTML content
+            StringBuilder body = (StringBuilder) emailData.get("body");
+            body.setLength(0); // Clear any existing content (like plain text)
+            body.append((String) part.getContent());
+        } else if (part.isMimeType("text/plain")) {
+            // Plain text content (only add if HTML content doesn't exist)
+            StringBuilder body = (StringBuilder) emailData.get("body");
+            if (body.isEmpty()) {
+                body.append((String) part.getContent());
+            }
+        } else if (part.isMimeType("multipart/*")) {
+            // Multipart content, traverse recursively
+            Multipart multipart = (Multipart) part.getContent();
+            for (int i = 0; i < multipart.getCount(); i++) {
+                parsePart(multipart.getBodyPart(i), emailData);
+            }
+        } else if (part.getFileName() != null && part.getHeader("Content-ID") != null) {
+            // Treat as an inline image if Content-ID exists
+            String contentId = part.getHeader("Content-ID")[0];
+            contentId = contentId.replace("<", "").replace(">", ""); // Remove angle brackets
+            Map<String, String> inlineImages = (Map<String, String>) emailData.get("inlineImages");
+
+            byte[] imageBytes = IOUtils.toByteArray(part.getInputStream());
+            String base64Image = java.util.Base64.getEncoder().encodeToString(imageBytes);
+            String imageType = part.getContentType().split(";")[0];
+            inlineImages.put(contentId, "data:" + imageType + ";base64," + base64Image);
+        } else if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()) || part.getFileName() != null) {
+            // Treat as a regular attachment if no Content-ID
+            Map<String, Object> attachment = new HashMap<>();
+            attachment.put("fileName", part.getFileName());
+            attachment.put("contentType", part.getContentType());
+            attachment.put("data", IOUtils.toByteArray(part.getInputStream()));
+            List<Map<String, Object>> attachments = (List<Map<String, Object>>) emailData.get("attachments");
+            attachments.add(attachment);
         }
     }
 }

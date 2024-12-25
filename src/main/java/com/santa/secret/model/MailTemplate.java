@@ -10,6 +10,8 @@ public class MailTemplate {
     private String template;
     private MailType typeMail;
 
+    private String emlFormattedContent; // this is for MailType.eml
+
     public MailTemplate sanitize() {
         name = name.trim();
         title = title.trim();
