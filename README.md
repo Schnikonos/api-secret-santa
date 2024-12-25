@@ -18,3 +18,8 @@ spring:
 ```shell
 java -Dspring.mail.username=your-email@gmail.com -Dspring.mail.password="your-email-password" -jar theJarName.jar
 ```
+
+Packaging
+```shell
+jpackage --input target --name SecretSanta --main-jar api-secret-santa-0.0.1-SNAPSHOT.jar --main-class com.santa.secret.ApiSecretSantaApplication --runtime-image path/to/my-custom-runtime --type exe
+```
