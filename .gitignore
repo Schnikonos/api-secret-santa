@@ -6,6 +6,8 @@ target/
 
 application-perso.yml
 mydatabase.db
+logs
+MySecretSanta-1.0.exe
 
 ### STS ###
 .apt_generated

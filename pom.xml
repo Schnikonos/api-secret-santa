@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.santa</groupId>
 	<artifactId>api-secret-santa</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<name>api-secret-santa</name>
 	<description>api-secret-santa</description>
 	<url/>

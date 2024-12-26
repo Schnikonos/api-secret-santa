@@ -29,3 +29,7 @@ spring:
 mybatis:
   type-aliases-package: com.santa.secret.model
   mapper-locations: classpath:mapper/*.xml
+
+logging:
+  file:
+    path: log
