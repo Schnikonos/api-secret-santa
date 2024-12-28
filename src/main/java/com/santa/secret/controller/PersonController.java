@@ -1,6 +1,7 @@
 package com.santa.secret.controller;
 
 import com.santa.secret.model.ComputeReply;
+import com.santa.secret.model.ImportPersonReply;
 import com.santa.secret.model.People;
 import com.santa.secret.model.PeopleGroup;
 import com.santa.secret.model.Santa;
@@ -130,5 +131,11 @@ public class PersonController {
     @PostMapping(path = "compute/{santaId}")
     public ComputeReply compute(@PathVariable long santaId, @RequestBody SantaRun santaRun) {
         return personService.compute(santaId, santaRun);
+    }
+
+    @PostMapping(path = "import-people")
+    public ImportPersonReply importPeople(@RequestBody List<People> peopleList) {
+        log.info("import-people");
+        return personService.importPeopleList(peopleList);
     }
 }

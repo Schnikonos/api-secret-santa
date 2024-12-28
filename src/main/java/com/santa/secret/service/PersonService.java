@@ -2,6 +2,7 @@ package com.santa.secret.service;
 
 import com.santa.secret.mapper.DbMapper;
 import com.santa.secret.model.ComputeReply;
+import com.santa.secret.model.ImportPersonReply;
 import com.santa.secret.model.MailTemplate;
 import com.santa.secret.model.People;
 import com.santa.secret.model.PeopleGroup;
@@ -9,6 +10,7 @@ import com.santa.secret.model.Santa;
 import com.santa.secret.model.SantaRun;
 import com.santa.secret.model.SantaRunExclusion;
 import com.santa.secret.model.SantaRunPeople;
+import io.micrometer.common.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -301,5 +304,47 @@ public class PersonService {
 
     public void insertExclusion(Long idRunPeople, SantaRunExclusion santaRunExclusion) {
         dbMapper.insertExclusion(idRunPeople, santaRunExclusion);
+    }
+
+    public ImportPersonReply importPeopleList(List<People> peopleList) {
+        log.info("import-people");
+        List<People> currentPeopleList = dbMapper.getPeopleList();
+        List<PeopleGroup> peopleGroupList = dbMapper.getPeopleGroupList();
+        ImportPersonReply importPersonReply = new ImportPersonReply();
+        peopleList.forEach(p -> importPeople(p, currentPeopleList, importPersonReply, peopleGroupList));
+        return importPersonReply;
+    }
+
+    private void importPeople(People people, List<People> currentPeopleList, ImportPersonReply importPersonReply, List<PeopleGroup> peopleGroupList) {
+        try {
+            if (StringUtils.isBlank(people.getName()) || StringUtils.isBlank(people.getSurname()) || StringUtils.isBlank(people.getEmail())) {
+                return;
+            }
+
+            Optional<People> findPeople = currentPeopleList.stream().filter(p1 -> p1.isSimilar(people)).findFirst();
+            if (findPeople.isPresent()) {
+                findPeople.get().setEmail(people.getEmail());
+                dbMapper.updatePeople(findPeople.get());
+                importPersonReply.getIdMap().put(people.getId(), findPeople.get().getId());
+            } else {
+                Long oldId = people.getId();
+                dbMapper.insertPeople(people);
+                importPersonReply.getIdMap().put(oldId, people.getId());
+                importPersonReply.getNewPersons().add(people.getId());
+            }
+            dbMapper.clearPeopleGroup(people.getId());
+            for (PeopleGroup pg : people.getGroups()) {
+                Optional<PeopleGroup> currentGroup = peopleGroupList.stream().filter(g -> g.getName().equalsIgnoreCase(pg.getName())).findFirst();
+                if (currentGroup.isPresent()) {
+                    pg.setId(currentGroup.get().getId());
+                } else {
+                    dbMapper.insertPeopleGroup(pg);
+                    peopleGroupList.add(pg);
+                }
+                dbMapper.insertPeopleGroupMapping(people.getId(), pg.getId());
+            }
+        } catch (Exception exc) {
+            log.error("Issue while importing people [{}]", people, exc);
+        }
     }
 }

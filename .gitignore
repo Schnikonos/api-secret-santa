@@ -6,6 +6,7 @@ target/
 
 application-perso.yml
 mydatabase.db
+mydatabase.db.bak
 logs
 MySecretSanta-1.0.exe
 

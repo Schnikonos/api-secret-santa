@@ -20,4 +20,9 @@ public class People {
         email = email.trim();
         return this;
     }
+
+    public boolean isSimilar(People p) {
+        return name.equalsIgnoreCase(p.name)
+                && surname.equalsIgnoreCase(p.surname);
+    }
 }
