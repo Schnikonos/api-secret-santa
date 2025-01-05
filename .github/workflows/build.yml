@@ -34,12 +34,18 @@ jobs:
       - name: Build with Maven
         run: mvn clean package
 
+      - name: Debug target directory
+        run: ls -R target
+
       # Upload the JAR as an artifact
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v3
         with:
           name: api-secret-santa
           path: target/*.jar
+
+      - name: Debug target directory
+        run: ls -R target
 
       - name: Create GitHub Release
         id: create_release
@@ -56,6 +62,6 @@ jobs:
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: target/*.jar
-          asset_name: api-secret-santa-1.0.0.jar
+          asset_path: target/api-secret-santa-1.0.0.jar
+          asset_name: secret-santa.jar
           asset_content_type: application/java-archive
