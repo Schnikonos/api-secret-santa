@@ -65,3 +65,5 @@ jobs:
           asset_path: target/api-secret-santa-1.0.0.jar
           asset_name: secret-santa.jar
           asset_content_type: application/java-archive
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Or PAT_TOKEN if using PAT
