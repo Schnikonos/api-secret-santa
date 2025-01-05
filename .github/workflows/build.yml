@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       # Checkout the code
@@ -20,6 +20,10 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      - name: Install WiX Toolset
+        run: |
+          choco install wixtoolset --no-progress
 
       # Cache Maven dependencies
       - name: Cache Maven dependencies
@@ -34,8 +38,23 @@ jobs:
       - name: Build with Maven
         run: mvn clean package
 
-      - name: Debug target directory
-        run: ls -R target
+      - name: Package Application
+        run: |
+          jpackage \
+            --name "MySecretSanta" \
+            --app-version "1.0.0" \
+            --type exe \
+            --input target \
+            --main-jar api-secret-santa-1.0.0.jar \
+            --main-class org.springframework.boot.loader.launch.JarLauncher \
+            --icon secret-santa.ico \
+            --win-shortcut \
+            --win-per-user-install \
+            --win-dir-chooser \
+            --win-console \
+            --win-menu \
+            --win-menu-group "My Apps"
+
 
       # Upload the JAR as an artifact
       - name: Upload JAR artifact
@@ -44,8 +63,11 @@ jobs:
           name: api-secret-santa
           path: target/*.jar
 
-      - name: Debug target directory
-        run: ls -R target
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: secret-santa-installer
+          path: installer/*.exe
 
       - name: Create GitHub Release
         id: create_release
@@ -66,4 +88,14 @@ jobs:
           asset_name: secret-santa.jar
           asset_content_type: application/java-archive
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Or PAT_TOKEN if using PAT
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: installer/*.exe
+          asset_name: secret-santa-installer.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
