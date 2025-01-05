@@ -3,6 +3,14 @@
 ## Description
 
 
+## Windows
+### Exec file
+The exe file can be found here: https://drive.google.com/drive/folders/1KwsGcHB1RqnFjC9yVgykQMEdH_EIu6kU?usp=sharing
+
+### Alternative
+- Download java17 in zip format : https://www.oracle.com/fr/java/technologies/downloads/#java17-windows
+- 
+
 ## Usage
 Set the following properties (in application-perso.yml or in a starting command line)
 

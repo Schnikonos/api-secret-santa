@@ -8,7 +8,7 @@ application-perso.yml
 mydatabase.db
 mydatabase.db.bak
 logs
-MySecretSanta-1.0.exe
+MySecretSanta-*.exe
 
 ### STS ###
 .apt_generated
