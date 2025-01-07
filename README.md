@@ -2,10 +2,6 @@
 
 ## Description
 
-## Windows
-### Exec file
-The exe file can be found here: https://drive.google.com/drive/folders/1KwsGcHB1RqnFjC9yVgykQMEdH_EIu6kU?usp=sharing
-
 ### Alternative
 - In `%USERPROFILE%\Documents` create the following folders:
   - _secretSanta_
@@ -22,7 +18,7 @@ setlocal
 
 rem ########### VARIABLES ############
 set PATH_TO_JAR=%USERPROFILE%\Documents\secretSanta
-set PATH_TO_JAR=%USERPROFILE%\Documents\Java\jdk-17
+set JAVA_HOME=%USERPROFILE%\Documents\Java\jdk-17
 rem ########### VARIABLES END ########
 
 set runJar=secret-santa.jar
