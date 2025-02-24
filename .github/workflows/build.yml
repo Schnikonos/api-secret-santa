@@ -48,13 +48,13 @@ jobs:
 
       # Upload the JAR as an artifact
       - name: Upload JAR artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: api-secret-santa
           path: target/*.jar
 
       - name: Upload EXE artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: secret-santa-installer
           path: '*.exe'
