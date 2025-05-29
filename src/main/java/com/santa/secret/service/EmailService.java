@@ -11,7 +11,9 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.santa.secret.mapper.DbMapper;
 import com.santa.secret.model.MailReply;
 import com.santa.secret.model.MailTemplate;
+import com.santa.secret.model.MailTest;
 import com.santa.secret.model.MailType;
+import com.santa.secret.model.MailVariables;
 import com.santa.secret.model.People;
 import com.santa.secret.model.Santa;
 import com.santa.secret.model.SantaRun;
@@ -178,6 +180,10 @@ public class EmailService {
         return sendMail(santa, santaRun, peopleList);
     }
 
+    public void sendMail(MailTest mailTest) {
+        sendEmail(toMimeMessage(mailTest.getMailTemplate(), mailTest.getMailVariables()));
+    }
+
     public MailReply sendMail(Santa santa, SantaRun santaRun, List<SantaRunPeople> peopleList) {
         Map<Long, People> peopleMap = dbMapper.getPeopleList().stream().collect(Collectors.toMap(People::getId, people -> people));
 
@@ -199,7 +205,7 @@ public class EmailService {
             People peopleTo = peopleMap.get(santaRunPeople.getIdPeopleTo());
 
             MailTemplate mailTemplate = santa.getMailTemplate();
-            sendEmail(toMimeMessage(mailTemplate, santa, peopleFrom, peopleTo));
+            sendEmail(toMimeMessage(mailTemplate, new MailVariables(santa, peopleFrom, peopleTo)));
             santaRunPeople.setMailSent(true);
             dbMapper.updateRunPeople(santaRunPeople);
             mailReply.getIdMailsSent().add(santaRunPeople.getIdPeople());
@@ -212,44 +218,44 @@ public class EmailService {
     }
 
     @SneakyThrows
-    private MimeMessage toMimeMessage(MailTemplate mailTemplate, Santa santa, People peopleFrom, People peopleTo) {
+    private MimeMessage toMimeMessage(MailTemplate mailTemplate, MailVariables mailVariables) {
         MimeMessage mimeMessage;
         if (MailType.eml.equals(mailTemplate.getTypeMail())) {
             InputStream inputStream = new ByteArrayInputStream(mailTemplate.getTemplate().getBytes(StandardCharsets.UTF_8));
             MimeMessage templateMessage = new MimeMessage(null, inputStream);
-            modifyMimeMessage(templateMessage, santa, peopleFrom, peopleTo);
+            modifyMimeMessage(templateMessage, mailVariables);
             mimeMessage = new MimeMessage((Session) null);
             mimeMessage.setContent(templateMessage.getContent(), templateMessage.getContentType());
         } else {
             mimeMessage = new MimeMessage((Session) null);
-            String body = fillMail(mailTemplate.getTemplate(), santa, peopleFrom, peopleTo);
+            String body = fillMail(mailTemplate.getTemplate(), mailVariables);
             mimeMessage.setText(body, "UTF-8", MailType.html.equals(mailTemplate.getTypeMail()) ? "html" : "plain");
         }
 
         // Modify sender and recipient
         mimeMessage.setFrom(new InternetAddress("no-reply@gmail.com"));
-        mimeMessage.setRecipients(jakarta.mail.Message.RecipientType.TO, InternetAddress.parse(peopleFrom.getEmail()));
-        String title = fillMail(mailTemplate.getTitle(), santa, peopleFrom, peopleTo);
+        mimeMessage.setRecipients(jakarta.mail.Message.RecipientType.TO, InternetAddress.parse(mailVariables.getRecipientMailAddress()));
+        String title = fillMail(mailTemplate.getTitle(), mailVariables);
         mimeMessage.setSubject(title);
 
         return mimeMessage;
     }
 
-    private String fillMail(String msg, Santa santa, People peopleFrom, People peopleTo) {
-        return msg.replace("{{secretSantaName}}", santa.getName())
-                .replace("{{secretSantaDate}}", santa.getSecretSantaDate())
-                .replace("{{fromName}}", peopleFrom.getName())
-                .replace("{{fromSurname}}", peopleFrom.getSurname())
-                .replace("{{toName}}", peopleTo.getName())
-                .replace("{{toSurname}}", peopleTo.getSurname());
+    private String fillMail(String msg, MailVariables mailVariables) {
+        return msg.replace("{{secretSantaName}}", mailVariables.getSantaName())
+                .replace("{{secretSantaDate}}", mailVariables.getSantaDate())
+                .replace("{{fromName}}", mailVariables.getFromName())
+                .replace("{{fromSurname}}", mailVariables.getFromSurname())
+                .replace("{{toName}}", mailVariables.getToName())
+                .replace("{{toSurname}}", mailVariables.getToSurname());
     }
 
     @SneakyThrows
-    private void modifyMimeMessage(Part part, Santa santa, People peopleFrom, People peopleTo) {
+    private void modifyMimeMessage(Part part, MailVariables mailVariables) {
         if (part.isMimeType("text/plain") || part.isMimeType("text/html")) {
             // Replace placeholders in text content
             String content = (String) part.getContent();
-            String modifiedContent = fillMail(content, santa, peopleFrom, peopleTo);
+            String modifiedContent = fillMail(content, mailVariables);
             if (part.isMimeType("text/html")) {
                 part.setContent(modifiedContent, "text/html; charset=UTF-8");
             } else {
@@ -260,7 +266,7 @@ public class EmailService {
             Multipart multipart = (Multipart) part.getContent();
             for (int i = 0; i < multipart.getCount(); i++) {
                 BodyPart bodyPart = multipart.getBodyPart(i);
-                modifyMimeMessage(bodyPart, santa, peopleFrom, peopleTo);
+                modifyMimeMessage(bodyPart, mailVariables);
             }
         }
     }

@@ -4,5 +4,6 @@ import lombok.Data;
 
 @Data
 public class MailTest {
-    private String accessToken;
+    private MailTemplate mailTemplate;
+    private MailVariables mailVariables;
 }

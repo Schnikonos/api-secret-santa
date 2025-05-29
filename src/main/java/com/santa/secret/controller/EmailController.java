@@ -3,6 +3,7 @@ package com.santa.secret.controller;
 import com.santa.secret.model.GmailToken;
 import com.santa.secret.model.MailReply;
 import com.santa.secret.model.MailTemplate;
+import com.santa.secret.model.MailTest;
 import com.santa.secret.model.SantaRun;
 import com.santa.secret.service.EmailService;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,11 @@ public class EmailController {
     @PostMapping(path = "mail/{santaId}")
     public MailReply sendMail(@PathVariable long santaId, @RequestBody SantaRun santaRun) {
         return emailService.sendMail(santaId, santaRun);
+    }
+
+    @PostMapping(path = "mail-test")
+    public void sendMail(@RequestBody MailTest mailTest) {
+        emailService.sendMail(mailTest);
     }
 
     @GetMapping(path = "template")
