@@ -4,7 +4,7 @@ rm -rf src/main/resources/static
 rm -rf target/classes/static
 mkdir -p target/classes
 
-export FOLDER_PATH="${HOME}/Work/other/santa/santa-app"
+export FOLDER_PATH="${HOME}/work/santa/santa-app"
 cp -r ${FOLDER_PATH}/build src/main/resources/static
 cp -r ${FOLDER_PATH}/build target/classes/static
 
