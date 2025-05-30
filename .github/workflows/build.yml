@@ -10,7 +10,7 @@ jobs:
     runs-on: windows-latest
 
     env:
-      Version: 1.5.0
+      Version: 1.6.0
 
     steps:
       # Checkout the code

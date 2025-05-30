@@ -11,7 +11,7 @@
 
 	<groupId>com.santa</groupId>
 	<artifactId>api-secret-santa</artifactId>
-	<version>1.5.0</version>
+	<version>1.6.0</version>
 	<name>api-secret-santa</name>
 	<description>api-secret-santa</description>
 
