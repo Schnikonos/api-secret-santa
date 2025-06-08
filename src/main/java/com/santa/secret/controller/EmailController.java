@@ -32,7 +32,7 @@ public class EmailController {
     }
 
     @PostMapping(path = "mail/{santaId}")
-    public MailReply sendMail(@PathVariable long santaId, @RequestBody SantaRun santaRun) {
+    public MailReply sendMail(@PathVariable("santaId") long santaId, @RequestBody SantaRun santaRun) {
         return emailService.sendMail(santaId, santaRun);
     }
 
@@ -47,7 +47,7 @@ public class EmailController {
     }
 
     @GetMapping("template/{id}")
-    public MailTemplate getTemplate(@PathVariable long id) {
+    public MailTemplate getTemplate(@PathVariable("id") long id) {
         return emailService.getMailTemplateForDisplay(id);
     }
 
@@ -77,7 +77,7 @@ public class EmailController {
     }
 
     @DeleteMapping(path = "template/{id}")
-    public void deleteTemplate(@PathVariable long id) {
+    public void deleteTemplate(@PathVariable("id") long id) {
         emailService.deleteMailTemplate(id);
     }
 }
