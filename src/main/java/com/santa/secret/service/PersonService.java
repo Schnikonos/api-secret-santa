@@ -41,7 +41,12 @@ public class PersonService {
         this.emailService = emailService;
 
         dbMapper.purgePeopleGroup();
+        dbMapper.purgePeopleGroupMapping1();
+        dbMapper.purgePeopleGroupMapping2();
 
+        dbMapper.purgePeopleGroup();
+        dbMapper.purgePeopleGroupMapping1();
+        dbMapper.purgePeopleGroupMapping2();
     }
 
     public ComputeReply compute(Long idSanta, SantaRun santaRun) {

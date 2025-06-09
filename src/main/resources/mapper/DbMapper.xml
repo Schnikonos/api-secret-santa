@@ -167,7 +167,15 @@
     </delete>
 
     <delete id="purgePeopleGroup">
-        DELETE FROM people_group WHERE id_peg NOT IN (SELECT id_peg from people_group)
+        DELETE FROM people_group WHERE id_peg NOT IN (SELECT id_peg from people_group_mapping)
+    </delete>
+
+    <delete id="purgePeopleGroupMapping1">
+        DELETE FROM people_group_mapping WHERE id_peo NOT IN (SELECT id_peo from people)
+    </delete>
+
+    <delete id="purgePeopleGroupMapping2">
+        DELETE FROM people_group_mapping WHERE id_peg NOT IN (SELECT id_peg from people_group)
     </delete>
 
     <update id="updatePeople" parameterType="com.santa.secret.model.People">
